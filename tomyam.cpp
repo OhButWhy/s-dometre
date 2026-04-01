@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <ctime>
+#include <chrono>
 #include <thread>
 
 
@@ -8,14 +9,15 @@ double single(int size, int p) {
     std::vector<std::vector<double>> A(size, std::vector<double>(size, 1.0));
     std::vector<double> x(size, 1.0);
     std::vector<double> y(size, 0.0);
-    std::clock_t start = std::clock();
+    auto start = std::chrono::steady_clock::now();
     for (int i = 0; i < size; i++) {
         for (int j = 0; j < size; j++) {
             y[i] += A[i][j] * x[j];
         }
     }
-    std::clock_t end = std::clock();
-    return double(end - start) / CLOCKS_PER_SEC;
+    auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
+    return elapsed.count();
 }
 
 double multi(int size, int p) {
@@ -51,15 +53,16 @@ double multi(int size, int p) {
     for (auto& t : threads) t.join();
     threads.clear();
 
-    std::clock_t start = std::clock();
+    auto start = std::chrono::steady_clock::now();
     for (int i = 0; i < p; i++) {
-        int start = i * chunk;
-        int end = (i == p - 1) ? size : start + chunk;
-        threads.emplace_back(worker, start, end);
+        int start_idx = i * chunk;
+        int end_idx = (i == p - 1) ? size : start_idx + chunk;
+        threads.emplace_back(worker, start_idx, end_idx);
     }
     for (auto& t : threads) t.join();
-    std::clock_t end = std::clock();
-    return double(end - start) / CLOCKS_PER_SEC;
+    auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
+    return elapsed.count();
 }
 
 int main(int argc, char** argv){
