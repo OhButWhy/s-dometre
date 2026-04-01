@@ -4,7 +4,7 @@
 #include <thread>
 
 
-std::clock_t single(int size, int p) {
+double single(int size, int p) {
     std::vector<std::vector<double>> A(size, std::vector<double>(size, 1.0));
     std::vector<double> x(size, 1.0);
     std::vector<double> y(size, 0.0);
@@ -15,10 +15,10 @@ std::clock_t single(int size, int p) {
         }
     }
     std::clock_t end = std::clock();
-    return (end - start) / CLOCKS_PER_SEC;
+    return double(end - start) / CLOCKS_PER_SEC;
 }
 
-std::clock_t multi(int size, int p) {
+double multi(int size, int p) {
     int chunk = size/p;
     std::vector<std::vector<double>> A(size, std::vector<double>(size));
     std::vector<double> x(size);
@@ -59,7 +59,7 @@ std::clock_t multi(int size, int p) {
     }
     for (auto& t : threads) t.join();
     std::clock_t end = std::clock();
-    return (end - start) / CLOCKS_PER_SEC;
+    return double(end - start) / CLOCKS_PER_SEC;
 }
 
 int main(int argc, char** argv){
@@ -69,10 +69,10 @@ int main(int argc, char** argv){
     }
     int size = std::stoi(argv[1]);
     int p = std::stoi(argv[2]);
-    std::clock_t time0 = single(size, p);
+    double time0 = single(size, p);
     std::cout << "Time: " << time0 << " seconds" << std::endl;
-    std::clock_t time1 = multi(size, p);
+    double time1 = multi(size, p);
     std::cout << "Time: " << time1 << " seconds" << std::endl;
-    std::cout << "Speedup: " << double(time0) / double(time1) << std::endl;
+    std::cout << "Speedup: " << (time1 > 0.0 ? time0 / time1 : 0.0) << std::endl;
     return 0;
 }
