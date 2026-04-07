@@ -8,3 +8,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(program tomyam.cpp)
 target_link_libraries(program pthread)
+
+add_executable(server server.cpp)
+target_link_libraries(server pthread)
+
+add_executable(test_server server_check.cpp)
+target_link_libraries(test_server pthread)
