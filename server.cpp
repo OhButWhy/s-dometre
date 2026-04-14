@@ -7,8 +7,10 @@
 #include <thread>
 #include <chrono>
 #include <fstream>
+#include <iostream>
 #include <random>
 #include <vector>
+#include <chrono>
 
 
 template <typename T>
@@ -148,15 +150,18 @@ void client_pow(Server<double>& server, size_t N) {
 int main() {
     Server<double> server;
     server.start();
-
-    std::thread client1(client_sin, std::ref(server), 100);
-    std::thread client2(client_sqrt, std::ref(server), 100);
-    std::thread client3(client_pow, std::ref(server), 100);
+    auto start = std::chrono::steady_clock::now();
+    std::thread client1(client_sin, std::ref(server), 10000);
+    std::thread client2(client_sqrt, std::ref(server), 10000);
+    std::thread client3(client_pow, std::ref(server), 10000);
 
     client1.join();
     client2.join();
     client3.join();
-
+    auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
     server.stop();
+
+    std::cout << elapsed.count() << std::endl;
     return 0;
 }
