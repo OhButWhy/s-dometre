@@ -10,80 +10,87 @@
 #include <iostream>
 #include <random>
 #include <vector>
-#include <chrono>
+#include <condition_variable>
 
 
 template <typename T>
 class Server {
     public:
         void start() {
-            running = true;
-            // servak = std::thread(&Server::run, this);
+            {
+                std::lock_guard<std::mutex> lock(mut);
+                running = true;
+            }
             for (size_t i = 0; i < 4; i++) {
                 workers.emplace_back(&Server::worker, this);
             }
         }
 
         void stop() {
-            running = false;
-            // servak.join();
+            {
+                std::lock_guard<std::mutex> lock(mut);
+                running = false;
+            }
+            cv_tasks.notify_all();
+            cv_results.notify_all();
             for (auto& worker : workers) {
                 worker.join();
             }
         }
 
         size_t add_task(std::function<T()> task) {
-            mut.lock();
-
+            std::lock_guard<std::mutex> lock(mut);
             size_t id = next_id++;
             tasks.push({id, std::move(task)});
-            mut.unlock();
+            cv_tasks.notify_one();
             return id;
         }
 
         T request_result(size_t id_res) {
-           while (true) {
-                mut.lock();
-                auto it = results.find(id_res);
-                if (it != results.end()) {
-                    T res = it->second;
-                    results.erase(it);
-                    mut.unlock();
-                    return res;
-                }
-                mut.unlock();
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            }
+            std::unique_lock<std::mutex> lock(mut);
+            cv_results.wait(lock, [&]() {
+                return results.find(id_res) != results.end();
+            });
+
+            T res = results[id_res];
+            results.erase(id_res);
+            return res;
         }
     private:
         std::unordered_map<size_t, T> results;
         std::queue<std::pair<size_t, std::function<T()>>> tasks;
         std::mutex mut;
+        std::condition_variable cv_tasks;
+        std::condition_variable cv_results;
         size_t next_id = 0;
         bool running = false;
         // std::thread servak;
         std::vector<std::thread> workers;
 
         void worker() {
-            while (running) {
+            while (true) {
                 std::pair<size_t, std::function<T()>> task_pair;
-                bool has_task = false;
-                mut.lock();
-                if (!tasks.empty()) {
-                    task_pair = tasks.front();
-                    tasks.pop();
-                    has_task = true;
-                }
-                mut.unlock();
 
-                if (has_task) {
-                    T res = task_pair.second();
-                    mut.lock();
-                    results[task_pair.first] = res;
-                    mut.unlock();
-                } else {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                {
+                    std::unique_lock<std::mutex> lock(mut);
+                    cv_tasks.wait(lock, [&]() {
+                        return !running || !tasks.empty();
+                    });
+
+                    if (!running && tasks.empty()) {
+                        return;
+                    }
+
+                    task_pair = std::move(tasks.front());
+                    tasks.pop();
                 }
+
+                T res = task_pair.second();
+                {
+                    std::lock_guard<std::mutex> lock(mut);
+                    results[task_pair.first] = res;
+                }
+                cv_results.notify_all();
             }
         }
 };
